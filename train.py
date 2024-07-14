@@ -6,15 +6,14 @@ from tqdm import tqdm
 import argparse
 import torch
 import torch.nn as nn
-
-
+from torch.utils.tensorboard import SummaryWriter  # Import SummaryWriter
 
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg',
-                        type=str,
-                        metavar='FILE',
-                        help='path to config file')
+                    type=str,
+                    metavar='FILE',
+                    help='path to config file')
     parser.add_argument('--mode',
                         type=str,
                         default='train',
@@ -22,7 +21,6 @@ def parse_option():
                         help='train/val/test mode')
     args = parser.parse_args()
     return args
-
 
 def main():
     args = parse_option()
@@ -35,6 +33,9 @@ def main():
     model.to(device)
     model.show_parameter_number()
     optimizer = optim.Adam(model.parameters(), eps=1e-8, lr=float(config['TRAIN']['BASE_LR']))
+
+    # Initialize TensorBoard writer
+    writer = SummaryWriter(log_dir='runs/TWNet_training')  # Specify the log directory
 
     for epoch in range(config['TRAIN']['EPOCHS']):
         # train
@@ -51,10 +52,15 @@ def main():
             epoch_loss += loss.item()  # Accumulate loss for the epoch
             print(f"Batch {i+1} Loss: {loss.item():.4f}")
 
-        
+            # Log training loss to TensorBoard
+            writer.add_scalar('Loss/train', loss.item(), epoch * len(train_data_loader) + i)
+
         # Display average loss for the epoch
         average_loss = epoch_loss / len(train_data_loader)
         print(f"Epoch {epoch+1} Loss: {average_loss:.4f}")
+
+        # Log epoch loss to TensorBoard
+        writer.add_scalar('Loss/epoch', average_loss, epoch)
 
         val_loss = 0.0
         torch.no_grad()
@@ -66,9 +72,14 @@ def main():
             loss = nn.L1Loss()(predict, TWV)  # Calculate L1 loss
             val_loss += loss.item()  # Accumulate loss for the epoch
             print(f"Batch {i+1} Loss: {loss.item():.4f}")
-        
+
+            # Log validation loss to TensorBoard
+            writer.add_scalar('Loss/val', loss.item(), epoch * len(val_data_loader) + i)
+
         model.save(epoch,val_loss/len(val_data_loader))
+
+    # Close the TensorBoard writer
+    writer.close()
 
 if __name__ == '__main__':
     main()
-
