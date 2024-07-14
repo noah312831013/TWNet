@@ -1,0 +1,16 @@
+TRAIN:
+  BASE_LR:
+    1e-4
+  EPOCHS: 200
+DATA:
+  DATASET: 'zind'
+  DIR: '/media/user/WD_BLACK/noah/zind/datasets'
+  BATCH_SIZE: 6
+  NUM_WORKERS: 6
+  AUG:
+    FLIP: True
+    STRETCH: True
+    ROTATE: True
+    GAMMA: True
+EVAL:
+  VP: False
