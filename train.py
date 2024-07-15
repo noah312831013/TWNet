@@ -67,28 +67,24 @@ def main():
     for epoch in range(config['TRAIN']['EPOCHS']):
         model.train()
         epoch_loss = 0.0
-        # Training loop
         tqdm_train = tqdm(train_data_loader, desc=f"Epoch {epoch+1}/{config['TRAIN']['EPOCHS']}")
         for i, gt in enumerate(tqdm_train):
             img = gt['image'].to(device, non_blocking=True)
             TWV = gt['TWV'].to(device, non_blocking=True)
-
+            TWV = (TWV >= 0.5).float()
             optimizer.zero_grad()
 
             predict = model(img)
-            #print(f'p: type:{type(predict)}, shape:{predict.shape}, dtype:{predict.dtype},TWV: type:{type(TWV)}, shape:{TWV.shape}, dtype:{TWV.dtype}')
             loss = nn.BCELoss()(predict.squeeze(-1), TWV.float())
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
-            # Update tqdm description with batch loss
             tqdm_train.set_description(f"Epoch {epoch+1}/{config['TRAIN']['EPOCHS']} Batch {i+1} Loss: {loss.item():.4f}")
 
         average_loss = epoch_loss / len(train_data_loader)
         train_avg_loss_list.append(average_loss)
         print(f"Epoch {epoch+1} Loss: {average_loss:.4f}")
 
-        # Validation loop
         val_loss = 0.0
         model.eval()
         with torch.no_grad():
@@ -96,11 +92,10 @@ def main():
             for i, gt in enumerate(tqdm_val):
                 img = gt['image'].to(device, non_blocking=True)
                 TWV = gt['TWV'].to(device, non_blocking=True)
-                
+                TWV = (TWV >= 0.5).float()
                 predict = model(img)
                 loss = nn.BCELoss()(predict.squeeze(-1).float(), TWV.float())
                 val_loss += loss.item()
-                # Update tqdm description with batch loss for validation
                 tqdm_val.set_description(f"Validation Batch {i+1} Loss: {loss.item():.4f}")
 
         avg_val_loss = val_loss / len(val_data_loader)
