@@ -14,6 +14,8 @@ class TWNet(base_model):
         self.patch_dim = 1024
         self.dropout_d = dropout
         self.feature_extractor = HorizonNetFeatureExtractor()
+        for param in self.feature_extractor.parameters():
+            param.requires_grad = False
 
         transformer_dim = self.patch_dim
         transformer_layers = depth
@@ -34,7 +36,7 @@ class TWNet(base_model):
         x = x.permute(0, 2, 1)
         x = self.transformer(x)
         x = self.linear(x)
-
-        output = torch.clamp(x.view(-1,self.patch_num),0,1)
-        return output
+        x = torch.sigmoid(x)
+        # output = torch.clamp(x.view(-1,self.patch_num),0,1)
+        return x
     

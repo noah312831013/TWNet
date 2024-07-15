@@ -10,7 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
 import functools
-#from torchvision.models import resnet50, ResNet50_Weights
+from torchvision.models import resnet50, ResNet50_Weights
 
 ENCODER_RESNET = [
     'resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152',
@@ -60,10 +60,10 @@ Encoder
 
 
 class Resnet(nn.Module):
-    def __init__(self, backbone='resnet50', pretrained=True):
+    def __init__(self, backbone='resnet50', weights = ResNet50_Weights.DEFAULT):
         super(Resnet, self).__init__()
         assert backbone in ENCODER_RESNET
-        self.encoder = getattr(models, backbone)(pretrained=pretrained)
+        self.encoder = getattr(models, backbone)(weights=weights)
         del self.encoder.fc, self.encoder.avgpool
 
     def forward(self, x):
@@ -211,7 +211,7 @@ class HorizonNetFeatureExtractor(nn.Module):
 
         # Encoder
         if backbone.startswith('res'):
-            self.feature_extractor = Resnet(backbone, pretrained=True )
+            self.feature_extractor = Resnet(backbone, weights=ResNet50_Weights.DEFAULT )
         elif backbone.startswith('dense'):
             self.feature_extractor = Densenet(backbone, pretrained=True)
         else:

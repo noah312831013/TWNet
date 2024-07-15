@@ -5,8 +5,8 @@ TRAIN:
 DATA:
   DATASET: 'zind'
   DIR: '/media/user/WD_BLACK/noah/zind/datasets'
-  BATCH_SIZE: 6
-  NUM_WORKERS: 6
+  BATCH_SIZE: 64
+  NUM_WORKERS: 10
   AUG:
     FLIP: True
     STRETCH: True

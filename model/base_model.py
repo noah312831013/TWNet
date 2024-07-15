@@ -62,7 +62,7 @@ class base_model(nn.Module):
     
     def save(self, epoch, l1loss):
 
-        name = str(l1loss)+'_'+str(epoch)+'.pkl'
+        name = f'l1:{str(l1loss)}_iter:{str(epoch)}.pkl'
         checkpoint = {
             'model': self.state_dict(),
             'epoch': epoch,
@@ -79,3 +79,5 @@ class base_model(nn.Module):
             print("#" * 100)
             print(f"Saved best model: {self.exist_model_path}")
             print("#" * 100)
+        else:
+            print(f'not saved,last:{l1loss}, best:{self.best_l1loss}')

@@ -6,14 +6,15 @@ from tqdm import tqdm
 import argparse
 import torch
 import torch.nn as nn
-from torch.utils.tensorboard import SummaryWriter  # Import SummaryWriter
+from matplotlib import pyplot as plt
+import os
 
 def parse_option():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cfg',
-                    type=str,
-                    metavar='FILE',
-                    help='path to config file')
+                        type=str,
+                        metavar='FILE',
+                        help='path to config file')
     parser.add_argument('--mode',
                         type=str,
                         default='train',
@@ -21,6 +22,31 @@ def parse_option():
                         help='train/val/test mode')
     args = parser.parse_args()
     return args
+
+def plot_loss_curves(train_avg_loss_list, val_avg_loss_list, save_path):
+    epochs = range(1, len(train_avg_loss_list) + 1)
+
+    # Plotting training loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(epochs, train_avg_loss_list, label='Training Loss', marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Training Loss over Epochs')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, 'training_loss.png'))
+    plt.close()
+
+    # Plotting validation loss
+    plt.figure(figsize=(10, 5))
+    plt.plot(epochs, val_avg_loss_list, label='Validation Loss', marker='o')
+    plt.xlabel('Epochs')
+    plt.ylabel('Loss')
+    plt.title('Validation Loss over Epochs')
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(os.path.join(save_path, 'validation_loss.png'))
+    plt.close()
 
 def main():
     args = parse_option()
@@ -34,52 +60,55 @@ def main():
     model.show_parameter_number()
     optimizer = optim.Adam(model.parameters(), eps=1e-8, lr=float(config['TRAIN']['BASE_LR']))
 
-    # Initialize TensorBoard writer
-    writer = SummaryWriter(log_dir='runs/TWNet_training')  # Specify the log directory
+    train_avg_loss_list = []
+    val_avg_loss_list = []
+
 
     for epoch in range(config['TRAIN']['EPOCHS']):
-        # train
-        model.train()  # Set model to training mode
-        optimizer.zero_grad()
-        epoch_loss = 0.0  # Initialize epoch loss
-        for i, gt in enumerate(tqdm(train_data_loader, desc=f"Epoch {epoch+1}/{config['TRAIN']['EPOCHS']}")):
-            img = gt['image'].to(device,non_blocking=True)
-            TWV = gt['TWV'].to(device,non_blocking=True)
+        model.train()
+        epoch_loss = 0.0
+        # Training loop
+        tqdm_train = tqdm(train_data_loader, desc=f"Epoch {epoch+1}/{config['TRAIN']['EPOCHS']}")
+        for i, gt in enumerate(tqdm_train):
+            img = gt['image'].to(device, non_blocking=True)
+            TWV = gt['TWV'].to(device, non_blocking=True)
+
+            optimizer.zero_grad()
+
             predict = model(img)
-            loss = nn.L1Loss()(predict, TWV)  # Calculate L1 loss
+            #print(f'p: type:{type(predict)}, shape:{predict.shape}, dtype:{predict.dtype},TWV: type:{type(TWV)}, shape:{TWV.shape}, dtype:{TWV.dtype}')
+            loss = nn.BCELoss()(predict.squeeze(-1), TWV.float())
             loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()  # Accumulate loss for the epoch
-            print(f"Batch {i+1} Loss: {loss.item():.4f}")
+            epoch_loss += loss.item()
+            # Update tqdm description with batch loss
+            tqdm_train.set_description(f"Epoch {epoch+1}/{config['TRAIN']['EPOCHS']} Batch {i+1} Loss: {loss.item():.4f}")
 
-            # Log training loss to TensorBoard
-            writer.add_scalar('Loss/train', loss.item(), epoch * len(train_data_loader) + i)
-
-        # Display average loss for the epoch
         average_loss = epoch_loss / len(train_data_loader)
+        train_avg_loss_list.append(average_loss)
         print(f"Epoch {epoch+1} Loss: {average_loss:.4f}")
 
-        # Log epoch loss to TensorBoard
-        writer.add_scalar('Loss/epoch', average_loss, epoch)
-
+        # Validation loop
         val_loss = 0.0
-        torch.no_grad()
         model.eval()
-        for i, gt in enumerate(tqdm(val_data_loader)):
-            img = gt['image'].to(device,non_blocking=True)
-            TWV = gt['TWV'].to(device,non_blocking=True)
-            predict = model(img)
-            loss = nn.L1Loss()(predict, TWV)  # Calculate L1 loss
-            val_loss += loss.item()  # Accumulate loss for the epoch
-            print(f"Batch {i+1} Loss: {loss.item():.4f}")
+        with torch.no_grad():
+            tqdm_val = tqdm(val_data_loader, desc="Validation")
+            for i, gt in enumerate(tqdm_val):
+                img = gt['image'].to(device, non_blocking=True)
+                TWV = gt['TWV'].to(device, non_blocking=True)
+                
+                predict = model(img)
+                loss = nn.BCELoss()(predict.squeeze(-1).float(), TWV.float())
+                val_loss += loss.item()
+                # Update tqdm description with batch loss for validation
+                tqdm_val.set_description(f"Validation Batch {i+1} Loss: {loss.item():.4f}")
 
-            # Log validation loss to TensorBoard
-            writer.add_scalar('Loss/val', loss.item(), epoch * len(val_data_loader) + i)
-
-        model.save(epoch,val_loss/len(val_data_loader))
-
-    # Close the TensorBoard writer
-    writer.close()
+        avg_val_loss = val_loss / len(val_data_loader)
+        val_avg_loss_list.append(avg_val_loss)
+        print(f"Epoch {epoch+1} Validation Loss: {avg_val_loss:.4f}")
+        model.save(epoch, avg_val_loss)
+    
+    plot_loss_curves(train_avg_loss_list, val_avg_loss_list, save_path='./ckpt')
 
 if __name__ == '__main__':
     main()
