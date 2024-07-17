@@ -71,11 +71,10 @@ def main():
         for i, gt in enumerate(tqdm_train):
             img = gt['image'].to(device, non_blocking=True)
             TWV = gt['TWV'].to(device, non_blocking=True)
-            TWV = (TWV >= 0.5).float()
             optimizer.zero_grad()
 
             predict = model(img)
-            loss = nn.BCELoss()(predict.squeeze(-1), TWV.float())
+            loss = nn.L1Loss()(predict.squeeze(-1), TWV.float())
             loss.backward()
             optimizer.step()
             epoch_loss += loss.item()
@@ -92,9 +91,8 @@ def main():
             for i, gt in enumerate(tqdm_val):
                 img = gt['image'].to(device, non_blocking=True)
                 TWV = gt['TWV'].to(device, non_blocking=True)
-                TWV = (TWV >= 0.5).float()
                 predict = model(img)
-                loss = nn.BCELoss()(predict.squeeze(-1).float(), TWV.float())
+                loss = nn.L1Loss()(predict.squeeze(-1), TWV.float())
                 val_loss += loss.item()
                 tqdm_val.set_description(f"Validation Batch {i+1} Loss: {loss.item():.4f}")
 
